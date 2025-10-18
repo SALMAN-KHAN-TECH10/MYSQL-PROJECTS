@@ -1,0 +1,200 @@
+-- DATA CLEANING
+USE WORLD_LAYOFFS;
+
+SELECT * 
+FROM  layoffs;
+
+-- STEP 1 REMOVING DUPLICATES FROM THE DATA 
+-- STEP 2 STANDARDIZE 
+-- STEP 3 NULL VALUES OR BLANKS VALUES 
+-- STEP 4 REMOVE ANY COLUMNS 
+
+CREATE TABLE LAYOFFS_STAGING 
+LIKE LAYOFFS ;
+
+SELECT * 
+FROM  LAYOFFS_STAGING;
+
+INSERT INTO LAYOFFS_STAGING
+SELECT *
+FROM LAYOFFS;
+
+
+SELECT * ,
+ROW_NUMBER() OVER(
+PARTITION BY COMPANY, LOCATION, INDUSTRY, TOTAL_LAID_OFF,
+ PERCENTAGE_LAID_OFF, 'DATE', STAGE, COUNTRY, FUNDS_RAISED_MILLIONS) AS ROW_NUM
+FROM  LAYOFFS_STAGING;
+
+WITH DUPLICATE_CTE AS 
+(
+SELECT * ,
+ROW_NUMBER() OVER(
+PARTITION BY COMPANY, INDUSTRY, TOTAL_LAID_OFF, PERCENTAGE_LAID_OFF, 'DATE') AS ROW_NUM
+FROM  LAYOFFS_STAGING
+)
+
+SELECT * 
+FROM DUPLICATE_CTE
+WHERE ROW_NUM > 1;
+
+SELECT * 
+FROM  LAYOFFS_STAGING
+WHERE COMPANY = 'CASPER';
+
+WITH DUPLICATE_CTE AS 
+(
+SELECT * ,
+ROW_NUMBER() OVER(
+PARTITION BY COMPANY, INDUSTRY, TOTAL_LAID_OFF, PERCENTAGE_LAID_OFF, 'DATE') AS ROW_NUM
+FROM  LAYOFFS_STAGING
+)
+
+DELETE 
+FROM DUPLICATE_CTE
+WHERE ROW_NUM > 1;
+
+CREATE TABLE `layoffs_staging2` (
+  `company` text,
+  `location` text,
+  `industry` text,
+  `total_laid_off` int DEFAULT NULL,
+  `percentage_laid_off` text,
+  `date` text,
+  `stage` text,
+  `country` text,
+  `funds_raised_millions` int DEFAULT NULL,
+  `row_num` int
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+
+SELECT * 
+FROM  LAYOFFS_STAGING2;
+
+INSERT INTO LAYOFFS_STAGING2
+SELECT * ,
+ROW_NUMBER() OVER(
+PARTITION BY COMPANY, INDUSTRY, TOTAL_LAID_OFF, PERCENTAGE_LAID_OFF, 'DATE') AS ROW_NUM
+FROM  LAYOFFS_STAGING ;
+
+SELECT * 
+FROM  LAYOFFS_STAGING2
+WHERE ROW_NUM > 1;
+
+
+SET SQL_SAFE_UPDATES = 0;
+
+DELETE 
+FROM  LAYOFFS_STAGING2
+WHERE ROW_NUM > 1;
+
+SELECT * 
+FROM  LAYOFFS_STAGING2
+;
+
+
+--                               STANDARDIZING DATA 
+
+
+
+SELECT COMPANY, (TRIM(COMPANY))
+FROM  LAYOFFS_STAGING2;
+
+UPDATE LAYOFFS_STAGING2
+SET COMPANY = TRIM(COMPANY);
+
+SELECT  DISTINCT INDUSTRY 
+FROM  LAYOFFS_STAGING2 ;
+
+UPDATE LAYOFFS_STAGING2
+SET INDUSTRY = 'CRYPTO'
+WHERE INDUSTRY LIKE 'CRYPTO%';
+
+SELECT DISTINCT COUNTRY
+FROM  LAYOFFS_STAGING2
+ORDER BY 1;
+
+SELECT DISTINCT COUNTRY , TRIM(TRAILING '.' FROM COUNTRY)
+FROM LAYOFFS_STAGING2
+ORDER BY 1 
+;
+
+UPDATE LAYOFFS_STAGING2
+SET COUNTRY = TRIM(TRAILING '.' FROM COUNTRY)
+WHERE COUNTRY LIKE 'UNITED STATES%';
+
+SELECT  `date`
+FROM  LAYOFFS_STAGING2 ;
+
+UPDATE  LAYOFFS_STAGING2
+SET `DATE` = STR_TO_DATE(`date`, '%m/%d/%Y');
+
+ALTER TABLE LAYOFFS_STAGING2
+MODIFY COLUMN `DATE` DATE ;
+
+SELECT * 
+FROM LAYOFFS_STAGING2;
+
+
+--                    NULL VALUES AND BLANK VALUES 
+
+
+SELECT * 
+FROM LAYOFFS_STAGING2
+where total_laid_off is null
+AND PERCENTAGE_LAID_OFF IS NULL;
+
+
+ --                  REMOVING COLUMNS AND ROWS 
+ 
+ 
+update layoffs_staging2
+set industry = null
+where industry = '';
+
+select *
+from layoffs_staging2
+where industry is null 
+or industry = '';
+
+
+select *
+from layoffs_staging2
+where company like 'bally%';
+
+
+select t1.industry,t2.industry
+from layoffs_staging2 t1
+join layoffs_staging2 t2
+	on t1.company = t2.company 
+    and t1.location = t2.location
+where (t1.industry is null or t1.industry = '')
+and t2.industry is not null ;
+
+
+UPDATE layoffs_staging2 t1
+join layoffs_staging2 t2
+	on t1.company = t2.company 
+set t1.industry = t2.industry
+where t1.industry is null 
+and t2.industry is not null ;
+
+select *
+from layoffs_staging2;
+
+SELECT * 
+FROM LAYOFFS_STAGING2
+where total_laid_off is null
+AND PERCENTAGE_LAID_OFF IS NULL;
+
+delete
+FROM LAYOFFS_STAGING2
+where total_laid_off is null
+AND PERCENTAGE_LAID_OFF IS NULL;
+
+SELECT * 
+FROM LAYOFFS_STAGING2;
+
+alter table LAYOFFS_STAGING2
+drop column row_num;
